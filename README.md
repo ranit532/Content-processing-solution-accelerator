@@ -20,16 +20,16 @@ This accelerator enables rapid extraction, transformation, and validation of mul
 
 ```mermaid
 graph TD
-    A[User/Frontend] -->|Upload| B[API Gateway (FastAPI)]
-    B -->|Store| C[Azure Blob Storage]
-    B -->|Enqueue| D[Azure Queue Storage]
-    D -->|Trigger| E[Container App: Processor]
-    E -->|OCR, GPT Vision, Content Understanding| F[Azure AI Services]
-    E -->|Schema Mapping & Scoring| G[Transformation Service]
-    G -->|Store| H[Cosmos DB]
-    G -->|Notify| I[Queue: Human Review]
-    I -->|Trigger| J[Container App: Validation UI]
-    J -->|Review/Edit| H
+    A[User / Frontend] -->|Upload| B["API Gateway - FastAPI"]
+    B -->|Store| C["Azure Blob Storage"]
+    B -->|Enqueue| D["Azure Queue Storage"]
+    D -->|Trigger| E["Container App - Processor"]
+    E -->|OCR, GPT Vision, Content Understanding| F["Azure AI Services"]
+    E -->|Schema Mapping & Scoring| G["Transformation Service"]
+    G -->|Store| H["Cosmos DB"]
+    G -->|Notify| I["Queue - Human Review"]
+    I -->|Trigger| J["Container App - Validation UI"]
+    J -->|Review / Edit| H
     H -->|Results| A
 ```
 
