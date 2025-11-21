@@ -1,8 +1,10 @@
+from dotenv import load_dotenv
+load_dotenv()
 import os
 from azure.storage.blob import BlobServiceClient
 from azure.storage.queue import QueueServiceClient
 
-BLOB_CONN = os.getenv("BLOB_CONN", "UseDevelopmentStorage=true")
+BLOB_CONN = os.getenv("BLOB_CONN")
 QUEUE_CONN = os.getenv("QUEUE_CONN", "UseDevelopmentStorage=true")
 
 blob_service = BlobServiceClient.from_connection_string(BLOB_CONN)

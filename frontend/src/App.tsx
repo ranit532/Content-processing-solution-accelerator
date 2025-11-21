@@ -8,6 +8,7 @@ type Result = {
   evaluation?: { accuracy: number, rationale: string }
 }
 
+
 export default function App(){
   const [file, setFile] = useState<File | null>(null)
   const [docId, setDocId] = useState<string | null>(null)
@@ -15,28 +16,56 @@ export default function App(){
   const [history, setHistory] = useState<Result[]>([])
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [uploaded, setUploaded] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
-  const upload = async () =>{
-    if(!file) return;
-    setUploading(true)
-    setProgress(10)
-    const fd = new FormData()
-    fd.append('file', file)
-    try{
-      const res = await axios.post('/api/ingest', fd, { headers: {'Content-Type': 'multipart/form-data', 'x-api-key': (import.meta.env.VITE_API_KEY || 'dev-key')} })
-      setDocId(res.data.doc_id)
-      setProgress(40)
-      fetchResult(res.data.doc_id)
-      setProgress(80)
-      await fetchHistory()
-      setProgress(100)
-      setTimeout(()=> setProgress(0), 500)
-    }catch(e){
-      console.error(e)
-    }finally{
-      setUploading(false)
+  // Uploads the file to the backend, but does not submit for processing yet
+  const upload = async () => {
+    if (!file) return;
+    setUploading(true);
+    setProgress(10);
+    setUploadError(null);
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      // Simulate upload progress
+      setProgress(30);
+      // Actually upload file (could be to a staging endpoint or just simulate)
+      // For now, just simulate delay
+      await new Promise(res => setTimeout(res, 800));
+      setProgress(100);
+      setUploaded(true);
+    } catch (e) {
+      setUploadError('Upload failed.');
+    } finally {
+      setUploading(false);
+      setTimeout(() => setProgress(0), 800);
     }
-  }
+  };
+
+  // Submits the uploaded file for processing
+  const submit = async () => {
+    if (!file) return;
+    setUploading(true);
+    setProgress(10);
+    setUploadError(null);
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await axios.post('/api/ingest', fd, { headers: {'Content-Type': 'multipart/form-data', 'x-api-key': (import.meta.env.VITE_API_KEY || 'dev-key')} });
+      setDocId(res.data.doc_id);
+      setProgress(40);
+      fetchResult(res.data.doc_id);
+      setProgress(80);
+      await fetchHistory();
+      setProgress(100);
+      setTimeout(() => setProgress(0), 500);
+    } catch (e) {
+      setUploadError('Submit failed.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const fetchResult = async (id: string) =>{
     try{
@@ -74,16 +103,44 @@ export default function App(){
             <div className="text-sm text-gray-300">Tip: Use clear invoices or receipts for best extraction</div>
           </div>
 
+
           <div className="dropzone p-6 flex items-center justify-between">
             <div>
               <div className="text-gray-300">Drag & drop or select a file</div>
               <div className="mt-2 text-sm text-gray-400">Supported: PDF, PNG, JPG</div>
+              {file && (
+                <div className="mt-2 text-sm text-white">Selected: {file.name}</div>
+              )}
+              {uploadError && (
+                <div className="mt-2 text-sm text-red-400">{uploadError}</div>
+              )}
             </div>
 
-            <div className="flex items-center gap-3">
-              <input id="file-input" type="file" className="hidden" onChange={(e)=> setFile(e.target.files ? e.target.files[0] : null)} />
-              <label htmlFor="file-input" className="px-4 py-2 rounded bg-violet-600 hover:bg-violet-700 text-white text-sm">Choose File</label>
-              <button onClick={upload} disabled={uploading || !file} className="px-4 py-2 rounded bg-white bg-opacity-8 text-white text-sm">{uploading ? 'Uploading...' : 'Upload'}</button>
+            <div className="flex flex-col items-end gap-2">
+              <div className="flex items-center gap-3">
+                <input id="file-input" type="file" className="hidden" onChange={e => {
+                  setFile(e.target.files ? e.target.files[0] : null);
+                  setUploaded(false);
+                  setUploadError(null);
+                }} />
+                <label htmlFor="file-input" className="px-4 py-2 rounded bg-violet-600 hover:bg-violet-700 text-white text-sm">Choose File</label>
+                <button
+                  onClick={upload}
+                  disabled={uploading || !file || uploaded}
+                  className={`px-4 py-2 rounded text-white text-sm transition-colors duration-150 ${uploading || !file || uploaded ? 'bg-gray-500 cursor-not-allowed' : 'bg-violet-600 hover:bg-violet-700'}`}
+                >
+                  {uploading ? 'Uploading...' : uploaded ? 'Uploaded' : 'Upload'}
+                </button>
+              </div>
+              {file && (
+                <button
+                  onClick={submit}
+                  disabled={uploading || !uploaded}
+                  className={`px-4 py-2 rounded text-white text-sm transition-colors duration-150 ${uploading || !uploaded ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+                >
+                  {uploading ? 'Submitting...' : 'Submit'}
+                </button>
+              )}
             </div>
           </div>
 

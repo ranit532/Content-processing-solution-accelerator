@@ -1,6 +1,6 @@
 import os
 from azure.cosmos import CosmosClient, PartitionKey
-from ..config import COSMOS_KEY
+from config import COSMOS_KEY
 
 DB_URL = os.getenv("COSMOS_URL")
 DB_KEY = COSMOS_KEY or os.getenv("COSMOS_KEY")

@@ -1,13 +1,18 @@
 param location string = resourceGroup().location
 param projectName string = 'my-content-processing-solution-accelerator'
 
-// Optional secret values can be passed during deployment; for production use secure pipelines or Key Vault.
+// Shorter prefix required for Azure resource naming limits
+param prefix string = 'cpsa'
+
+// Optional secrets (set via Key Vault or pipeline, not used directly here)
 param openaiApiKey string = ''
 param cosmosKey string = ''
 
-// Storage account
+//
+// STORAGE ACCOUNT
+//
 resource sa 'Microsoft.Storage/storageAccounts@2022-09-01' = {
-  name: toLower('${projectName}sa')
+  name: toLower('${prefix}sa')
   location: location
   kind: 'StorageV2'
   sku: {
@@ -16,7 +21,7 @@ resource sa 'Microsoft.Storage/storageAccounts@2022-09-01' = {
   properties: {}
 }
 
-// Blob service (parent for containers)
+// Blob service
 resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2022-09-01' = {
   parent: sa
   name: 'default'
@@ -28,7 +33,9 @@ resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/container
   properties: {}
 }
 
-// Queue service (parent for queues)
+//
+// QUEUE STORAGE
+//
 resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2022-09-01' = {
   parent: sa
   name: 'default'
@@ -40,9 +47,11 @@ resource queue 'Microsoft.Storage/storageAccounts/queueServices/queues@2022-09-0
   properties: {}
 }
 
-// Cosmos DB
+//
+// COSMOS DB ACCOUNT
+//
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2021-10-15' = {
-  name: toLower('${projectName}cosmos')
+  name: toLower('${prefix}cosmos')
   location: location
   kind: 'GlobalDocumentDB'
   properties: {
@@ -56,18 +65,52 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2021-10-15' = {
   }
 }
 
-// Container Registry
+//
+// COSMOS DB SQL DATABASE
+//
+resource cosmosDb 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2021-10-15' = {
+  parent: cosmos
+  name: 'contentdb'
+  properties: {
+    resource: {
+      id: 'contentdb'
+    }
+  }
+}
+
+//
+// COSMOS DB SQL CONTAINER
+//
+resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2021-10-15' = {
+  parent: cosmosDb
+  name: 'items'
+  properties: {
+    resource: {
+      id: 'items'
+      partitionKey: {
+        paths: ['/id']
+        kind: 'Hash'
+      }
+    }
+  }
+}
+
+//
+// CONTAINER REGISTRY
+//
 resource acr 'Microsoft.ContainerRegistry/registries@2022-02-01-preview' = {
-  name: toLower('${projectName}acr')
+  name: toLower('${prefix}acr')
+  location: location
   sku: {
     name: 'Basic'
   }
-  location: location
 }
 
-// Log Analytics workspace
+//
+// LOG ANALYTICS WORKSPACE
+//
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2020-08-01' = {
-  name: toLower('${projectName}-logs')
+  name: toLower('${prefix}-logs')
   location: location
   properties: {
     sku: {
@@ -76,15 +119,19 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2020-08-01' = {
   }
 }
 
-// Managed identity for apps
+//
+// MANAGED IDENTITY
+//
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2018-11-30' = {
-  name: toLower('${projectName}-identity')
+  name: toLower('${prefix}-identity')
   location: location
 }
 
-// Key Vault
+//
+// KEY VAULT
+//
 resource keyVault 'Microsoft.KeyVault/vaults@2021-10-01' = {
-  name: toLower('${projectName}-kv')
+  name: toLower('${prefix}-kv')
   location: location
   properties: {
     tenantId: subscription().tenantId
@@ -97,11 +144,11 @@ resource keyVault 'Microsoft.KeyVault/vaults@2021-10-01' = {
   }
 }
 
-// NOTE: Key Vault secrets are set post-deployment via az keyvault secret set to avoid deployment permission issues.
-
-// Container App Environment (managed environment) linked to Log Analytics
+//
+// CONTAINER APPS ENVIRONMENT
+//
 resource containerAppEnv 'Microsoft.App/managedEnvironments@2022-03-01' = {
-  name: toLower('${projectName}-env')
+  name: toLower('${prefix}-env')
   location: location
   properties: {
     appLogsConfiguration: {
@@ -114,10 +161,9 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2022-03-01' = {
   }
 }
 
-// NOTE: role assignments are intentionally not created here to avoid scope mismatch errors
-// Role assignments will be created post-deployment using the Azure CLI with the managed identity principalId.
-
-// Outputs
+//
+// OUTPUTS
+//
 output storageAccountName string = sa.name
 output storageAccountId string = sa.id
 output cosmosName string = cosmos.name

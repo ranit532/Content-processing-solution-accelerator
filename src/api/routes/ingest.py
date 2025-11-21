@@ -1,9 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Header
 from uuid import uuid4
 import os
-from ..services.storage import blob_client, queue_client
-from ..services.logger import get_logger
-from ..services.auth import require_api_key
+from services.storage import blob_client, queue_client
+from services.logger import get_logger
+from services.auth import require_api_key
 
 logger = get_logger()
 

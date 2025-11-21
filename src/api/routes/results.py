@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
-from ..services.db import get_result_by_id, list_results
-from ..services.logger import get_logger
-from ..services.auth import require_api_key
-from ..services.evaluator import evaluate_mapping
+from services.db import get_result_by_id, list_results
+from services.logger import get_logger
+from services.auth import require_api_key
+from services.evaluator import evaluate_mapping
 
 logger = get_logger()
 router = APIRouter()

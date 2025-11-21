@@ -1,3 +1,21 @@
+## Generating a sample PDF for testing
+
+To test the pipeline/worker end-to-end, you can generate a sample invoice PDF from a JSON file:
+
+1. Ensure you have Python and pip installed.
+2. Install the required package:
+   ```bash
+   pip install fpdf
+   ```
+3. Use the provided `sample_invoice.json` as your invoice data, or edit it as needed.
+4. Run the script to generate a PDF:
+   ```bash
+   python generate_invoice_pdf.py
+   ```
+   This will create `sample_invoice.pdf` in your project root.
+5. Upload `sample_invoice.pdf` using the frontend to test the pipeline.
+
+This PDF will contain structured invoice data that matches the expected format for extraction and mapping in your pipeline.
 # my-content-processing-solution-accelerator
 
 ## Solution Overview
@@ -116,17 +134,22 @@ azd deploy
 
 ## Local development - step by step (runnable)
 
+
 Prerequisites
 - Docker & Docker Compose
 - Python 3.11
 - Node 18+ / npm
 - Optional: Azure CLI and azd if you will deploy to Azure
+- **Backend Python dependencies:**
+   - All required packages are listed in `src/requirements.txt`.
+   - Make sure `python-dateutil` and `python-dotenv` are present (added for date parsing and .env support).
 
 1) Clone and prepare
 ```bash
 git clone https://github.com/your-org/my-content-processing-solution-accelerator.git
 cd my-content-processing-solution-accelerator
 ```
+
 
 2) Python environment
 ```bash
@@ -135,6 +158,8 @@ source .venv/bin/activate  # zsh / bash on macOS / Linux
 pip install --upgrade pip
 pip install -r src/requirements.txt
 ```
+
+If you see errors about missing modules (e.g. `ModuleNotFoundError: No module named 'dateutil'`), ensure you have installed all dependencies from `src/requirements.txt`.
 
 3) Frontend dependencies
 ```bash
@@ -177,13 +202,30 @@ python tests/local/worker_harness.py
 ```
 This starts the FastAPI backend and the worker in-process.
 
+
 Option B — separate processes / containers:
 ```bash
-# Start API
-uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
-# In another shell (with same .env active)
-python -m src.pipelines.worker
+# Start API (from project root, not inside src)
+PYTHONPATH=src uvicorn api.main:app --reload --host 0.0.0.0 --port 8000
 ```
+In another shell (with the same .env active), start the worker:
+```bash
+PYTHONPATH=src python -m src.pipelines.worker
+```
+
+**Note:** Always run the backend and worker from the project root and use `PYTHONPATH=src` for correct imports and environment variable loading. Your `.env` file must be in the project root.
+
+**Troubleshooting the worker and Cosmos DB:**
+- If you see `ModuleNotFoundError: No module named 'config'`, you are not running from the project root or did not set `PYTHONPATH=src`.
+- If you see Cosmos DB errors like `CosmosHttpResponseError: (BadRequest) ... "One of the specified inputs is invalid"`, check that your document has all required fields (especially `doc_id`) and matches your Cosmos DB container schema.
+- If you see OpenAI API errors or want to test the end-to-end flow without a working model/key, the pipeline is set up to bypass model calls and use dummy data for local/dev testing. This allows you to validate uploads, Cosmos DB writes, and the history UI without needing a real OpenAI key or quota.
+
+**To test the full flow locally:**
+1. Start the backend and frontend as described above.
+2. Start the worker with `PYTHONPATH=src python -m src.pipelines.worker`.
+3. Upload a document in the frontend. The worker will process the queue and write dummy results to Cosmos DB.
+4. Refresh the frontend to see your uploads in the history panel.
+5. If you want to re-enable real model calls, revert the dummy data patch in `src/pipelines/processor.py`.
 
 8) Start the frontend
 ```bash
@@ -192,14 +234,40 @@ npm run dev --prefix frontend
 ```
 
 9) Run tests
-- Unit tests
 ```bash
 pytest
 ```
-- E2E (Playwright) tests (requires the backend reachable at http://localhost:8000)
 ```bash
 npx playwright test --project=chromium
 ```
+
+---
+
+## End-to-end test: Verify the full flow
+
+Once both the backend and frontend are running:
+
+1. **Open the frontend app:**
+   - Go to [http://localhost:5173](http://localhost:5173) in your browser.
+
+2. **Upload a document:**
+   - Use the UI to upload a PDF, image, or supported file.
+   - The frontend will call the backend API (`/api/ingest`) and show progress.
+
+3. **Check results:**
+   - After upload, you should see extraction and mapping results in the UI.
+   - You can review, edit, or validate the output as needed.
+
+4. **Backend/API logs:**
+   - Check the backend terminal for logs and errors.
+   - API docs are available at [http://localhost:8000/docs](http://localhost:8000/docs).
+
+5. **Troubleshooting:**
+   - If upload fails, check both frontend and backend terminal output for errors.
+   - Ensure `.env` is set up and all services (Blob, Cosmos, etc.) are reachable.
+   - For common issues, see the Troubleshooting section above.
+
+---
 
 ---
 

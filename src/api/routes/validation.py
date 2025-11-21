@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from ..services.db import update_result_validation, get_result_by_id
-from ..services.auth import require_api_key
-from ..services.logger import get_logger
+from services.db import update_result_validation, get_result_by_id
+from services.auth import require_api_key
+from services.logger import get_logger
 
 logger = get_logger()
 

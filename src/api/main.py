@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from .routes import ingest, results, validation, health
-from ..services.logger import get_logger
+from api.routes import ingest, results, validation, health
+from services.logger import get_logger
 
 logger = get_logger()
 
