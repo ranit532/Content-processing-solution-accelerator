@@ -38,6 +38,7 @@ def process_message(message: dict):
         "validated": False
     }
 
+    print("Upserting to Cosmos DB:", result)
     upsert_result(result)
     logger.info(f"Finished processing {doc_id} with confidence {confidence}")
     return result

@@ -2,47 +2,78 @@ import os
 from azure.cosmos import CosmosClient, PartitionKey
 from config import COSMOS_KEY
 
+# --- Load Environment Variables ---
 DB_URL = os.getenv("COSMOS_URL")
 DB_KEY = COSMOS_KEY or os.getenv("COSMOS_KEY")
 DB_NAME = os.getenv("COSMOS_DB", "contentdb")
+CONTAINER_NAME = "results"
 
+# Partition key from .env (fallback to /doc_id)
+PARTITION_KEY_PATH = os.getenv("COSMOS_PARTITION_KEY", "/doc_id")
+
+# --- Cosmos Client ---
 client = CosmosClient(DB_URL, credential=DB_KEY)
 
+
 def get_container():
-    try:
-        db = client.create_database(DB_NAME)
-    except Exception:
-        db = client.get_database_client(DB_NAME)
-    try:
-        container = db.create_container(id="results", partition_key=PartitionKey(path="/doc_id"))
-    except Exception:
-        container = db.get_container_client("results")
+    """
+    Returns the container client without trying to recreate
+    the database or container. This avoids invalid input errors.
+    """
+    db = client.get_database_client(DB_NAME)
+    container = db.get_container_client(CONTAINER_NAME)
     return container
 
 
 def upsert_result(doc: dict):
-    c = get_container()
-    c.upsert_item(doc)
+    """
+    Inserts or updates the document.
+    The document MUST contain `doc_id` since partition key = /doc_id.
+    """
+    if "doc_id" not in doc:
+        raise ValueError("Document must include `doc_id` field for partition key.")
+
+    container = get_container()
+    return container.upsert_item(doc)
 
 
 def get_result_by_id(doc_id: str):
-    c = get_container()
+    """
+    Queries documents using the correct field name: doc_id.
+    """
+    container = get_container()
+    query = f"SELECT * FROM c WHERE c.doc_id = '{doc_id}'"
+
     try:
-        res = list(c.query_items(query=f"SELECT * FROM c WHERE c.doc_id = '{doc_id}'", enable_cross_partition_query=True))
-        return res[0] if res else None
+        results = list(container.query_items(
+            query=query,
+            enable_cross_partition_query=True
+        ))
+        return results[0] if results else None
     except Exception:
         return None
 
 
 def list_results(limit: int = 50):
-    c = get_container()
-    return list(c.read_all_items(max_item_count=limit))
+    """
+    Reads all items.
+    """
+    container = get_container()
+    return list(container.read_all_items(max_item_count=limit))
 
 
 def update_result_validation(doc_id: str, changes: dict):
-    res = get_result_by_id(doc_id)
-    if not res:
+    """
+    Updates validation results on a record.
+    """
+    record = get_result_by_id(doc_id)
+    if not record:
         return False
-    res.update({"validated": True, "validated_changes": changes})
-    upsert_result(res)
+
+    record.update({
+        "validated": True,
+        "validated_changes": changes
+    })
+
+    upsert_result(record)
     return True
