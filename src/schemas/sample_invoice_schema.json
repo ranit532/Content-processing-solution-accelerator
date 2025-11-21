@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Invoice",
+  "type": "object",
+  "properties": {
+    "invoice_number": {"type": "string"},
+    "date": {"type": "string", "format": "date"},
+    "total": {"type": "number"},
+    "vendor": {"type": "string"},
+    "line_items": {
+      "type": "array",
+      "items": {"type": "object", "properties": {"description": {"type": "string"}, "amount": {"type": "number"}}}
+    }
+  },
+  "required": ["invoice_number", "total"]
+}

@@ -1,0 +1,16 @@
+name: my-content-processing-solution-accelerator
+resourceGroup: my-content-rg
+location: eastus
+
+environments:
+  default:
+    subscription: ''
+    location: eastus
+
+services:
+  backend:
+    project: ./src
+    language: python
+  frontend:
+    project: ./frontend
+    language: node

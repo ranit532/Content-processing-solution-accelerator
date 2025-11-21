@@ -1,0 +1,12 @@
+{
+  "name": "my-content-processing-solution-accelerator",
+  "image": "mcr.microsoft.com/vscode/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "postCreateCommand": "pip install -r src/requirements.txt && npm install --prefix frontend",
+  "forwardPorts": [8000, 5173],
+  "workspaceFolder": "/workspace"
+}

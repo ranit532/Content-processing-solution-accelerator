@@ -1,0 +1,7 @@
+# Ignore node_modules and python envs
+node_modules/
+frontend/node_modules/
+.env
+.vscode/
+.idea/
+__pycache__/

@@ -1,0 +1,40 @@
+name: E2E Tests
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite
+        ports:
+          - 10000:10000
+          - 10001:10001
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Compose
+        uses: docker/setup-qemu-action@v2
+      - name: Start azurite
+        run: |
+          docker run -d -p 10000:10000 -p 10001:10001 mcr.microsoft.com/azure-storage/azurite
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src
+          file: ./src/Dockerfile
+          push: false
+          tags: my-backend:local
+      - name: Run backend linked to azurite
+        run: |
+          docker run -d -p 8000:8000 --name backend --env BLOB_CONN="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xnoIU7...;BlobEndpoint=http://host.docker.internal:10000/devstoreaccount1;" --env QUEUE_CONN="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xnoIU7...;QueueEndpoint=http://host.docker.internal:10001/devstoreaccount1;" my-backend:local
+      - name: Install Playwright
+        run: |
+          npm ci --prefix tests/e2e
+          npx playwright install --with-deps
+      - name: Run Playwright tests
+        run: |
+          npx playwright test --project=chromium

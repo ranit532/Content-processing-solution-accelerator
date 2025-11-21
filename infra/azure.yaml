@@ -1,0 +1,25 @@
+name: my-content-processing-solution-accelerator
+services:
+  backend:
+    project: ./src
+    dockerfile: ./src/Dockerfile
+    image: ${{ secrets.ACR_LOGIN_SERVER }}/my-backend:latest
+    build:
+      context: ./src
+      dockerfile: ./src/Dockerfile
+    resources:
+      cpu: 0.5
+      memory: 1.0
+    environmentVariables:
+      OPENAI_MODEL: gpt-5-mini
+      API_KEY: ${{ secrets.API_KEY }}
+  frontend:
+    project: ./frontend
+    dockerfile: ./frontend/Dockerfile
+    image: ${{ secrets.ACR_LOGIN_SERVER }}/my-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: ./frontend/Dockerfile
+    resources:
+      cpu: 0.25
+      memory: 0.5

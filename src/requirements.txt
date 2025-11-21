@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+azure-storage-blob
+azure-storage-queue
+azure-cosmos
+openai
+pydantic
+python-multipart
+pytest
+pytest-asyncio
