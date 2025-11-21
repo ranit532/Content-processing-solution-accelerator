@@ -16,16 +16,27 @@ resource sa 'Microsoft.Storage/storageAccounts@2022-09-01' = {
   properties: {}
 }
 
-resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2022-09-01' = {
+// Blob service (parent for containers)
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2022-09-01' = {
   parent: sa
-  name: 'default/documents'
+  name: 'default'
+}
+
+resource blobContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2022-09-01' = {
+  parent: blobService
+  name: 'documents'
   properties: {}
 }
 
-// Queue
-resource queue 'Microsoft.Storage/storageAccounts/queueServices/queues@2022-09-01' = {
+// Queue service (parent for queues)
+resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2022-09-01' = {
   parent: sa
-  name: 'default/processing-queue'
+  name: 'default'
+}
+
+resource queue 'Microsoft.Storage/storageAccounts/queueServices/queues@2022-09-01' = {
+  parent: queueService
+  name: 'processing-queue'
   properties: {}
 }
 
@@ -81,41 +92,12 @@ resource keyVault 'Microsoft.KeyVault/vaults@2021-10-01' = {
       name: 'standard'
       family: 'A'
     }
-    // Grant the user-assigned identity access to secrets via an access policy
-    accessPolicies: [
-      {
-        tenantId: subscription().tenantId
-        objectId: identity.principalId
-        permissions: {
-          secrets: [
-            'get'
-            'list'
-            'set'
-            'delete'
-          ]
-        }
-      }
-    ]
+    accessPolicies: []
     enableSoftDelete: true
   }
 }
 
-// Provision Key Vault secrets (values provided as parameters during deployment or empty placeholders)
-resource kvSecretOpenAI 'Microsoft.KeyVault/vaults/secrets@2021-10-01' = {
-  name: '${keyVault.name}/OPENAI_API_KEY'
-  properties: {
-    value: openaiApiKey
-  }
-  dependsOn: [keyVault]
-}
-
-resource kvSecretCosmos 'Microsoft.KeyVault/vaults/secrets@2021-10-01' = {
-  name: '${keyVault.name}/COSMOS_KEY'
-  properties: {
-    value: cosmosKey
-  }
-  dependsOn: [keyVault]
-}
+// NOTE: Key Vault secrets are set post-deployment via az keyvault secret set to avoid deployment permission issues.
 
 // Container App Environment (managed environment) linked to Log Analytics
 resource containerAppEnv 'Microsoft.App/managedEnvironments@2022-03-01' = {
@@ -130,30 +112,10 @@ resource containerAppEnv 'Microsoft.App/managedEnvironments@2022-03-01' = {
       }
     }
   }
-  dependsOn: [logAnalytics]
 }
 
-// Role assignment: grant Storage Blob Data Contributor to the user-assigned identity on the storage account
-resource storageBlobRole 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = if (identity != null) {
-  name: guid(sa.id, identity.principalId, 'storageBlobDataContributor')
-  properties: {
-    principalId: identity.principalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe') // Storage Blob Data Contributor
-    scope: sa.id
-  }
-  dependsOn: [identity, sa]
-}
-
-// Role assignment: grant Managed Identity Reader on Key Vault (RBAC) - optional
-resource keyVaultRole 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = if (identity != null) {
-  name: guid(keyVault.id, identity.principalId, 'keyVaultReader')
-  properties: {
-    principalId: identity.principalId
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7') // Contributor (use appropriate limited role in production)
-    scope: keyVault.id
-  }
-  dependsOn: [identity, keyVault]
-}
+// NOTE: role assignments are intentionally not created here to avoid scope mismatch errors
+// Role assignments will be created post-deployment using the Azure CLI with the managed identity principalId.
 
 // Outputs
 output storageAccountName string = sa.name
@@ -161,6 +123,6 @@ output storageAccountId string = sa.id
 output cosmosName string = cosmos.name
 output acrName string = acr.name
 output keyVaultName string = keyVault.name
-output identityClientId string = identity.clientId
+output identityClientId string = identity.properties.clientId
 output logAnalyticsName string = logAnalytics.name
 output containerAppEnvId string = containerAppEnv.id
