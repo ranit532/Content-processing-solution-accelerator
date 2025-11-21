@@ -169,8 +169,114 @@ az ad sp create-for-rbac --name "cpsa-sp" --role Contributor --scopes /subscript
 
 ---
 
-If you want, I can:
-- Commit this `infra/README.md` to the repo (it's already created here),
-- Create a CI service principal and assign minimal roles for ACR push and container app deployment, or
-- Wire a Container App deployment resource into the Bicep and perform an end-to-end deploy of the backend containers.
+## Commands I ran (exact sequence)
+
+Below are the exact commands I executed interactively while provisioning your infra. You can copy/paste these in order (replace placeholders) to reproduce the same result.
+
+1) Create resource group
+
+```bash
+az group create -n my-cpsa-rg -l eastus
+```
+
+2) Create a params file used for deployment (leave secrets empty)
+
+```bash
+cat > infra/params.deploy.json <<EOF
+{
+  "projectName": { "value": "cpsa" },
+  "openaiApiKey": { "value": "" },
+  "cosmosKey": { "value": "" }
+}
+EOF
+```
+
+3) Deploy the Bicep template
+
+```bash
+az deployment group create -g my-cpsa-rg --template-file infra/bicep/main.bicep --parameters @infra/params.deploy.json --name cpsa-deploy-3
+```
+
+4) Show deployment outputs (capture resource names)
+
+```bash
+az deployment group show -g my-cpsa-rg -n cpsa-deploy-3 --query properties.outputs
+```
+
+5) Get the managed identity principalId
+
+```bash
+az identity show -g my-cpsa-rg -n cpsa-identity --query principalId -o tsv
+# -> principalId (save this value)
+```
+
+6) Create role assignments for the managed identity
+
+```bash
+# Storage access (Blob Data Contributor)
+az role assignment create --assignee <PRINCIPAL_ID> --role "Storage Blob Data Contributor" --scope /subscriptions/<SUB_ID>/resourceGroups/my-cpsa-rg/providers/Microsoft.Storage/storageAccounts/<storageAccountName>
+
+# Key Vault access (Secrets User)
+az role assignment create --assignee <PRINCIPAL_ID> --role "Key Vault Secrets User" --scope /subscriptions/<SUB_ID>/resourceGroups/my-cpsa-rg/providers/Microsoft.KeyVault/vaults/<keyVaultName>
+```
+
+7) Grant your CLI principal permission to set secrets (if needed)
+
+```bash
+# get your signed-in user id
+az ad signed-in-user show --query id -o tsv
+
+# grant secret permissions on the vault
+az keyvault set-policy --name <keyVaultName> --object-id <YOUR_OBJECT_ID> --secret-permissions get list set delete
+```
+
+8) Set the OPENAI API key into Key Vault securely
+
+```bash
+export OPENAI_KEY="<YOUR_OPENAI_KEY>"
+az keyvault secret set --vault-name <keyVaultName> --name OPENAI-API-KEY --value "$OPENAI_KEY"
+unset OPENAI_KEY
+```
+
+9) (Optional) Create a CI service principal and give it permissions
+
+```bash
+# Create SP for ACR push scope (returns appId, password, tenant)
+az ad sp create-for-rbac --name "cpsa-sp" --role "AcrPush" --scopes /subscriptions/<SUB_ID>/resourceGroups/my-cpsa-rg/providers/Microsoft.ContainerRegistry/registries/<acrName> -o json
+
+# (I also created a Contributor assignment at the RG level interactively)
+az role assignment create --assignee <SP_APPID> --role "Contributor" --scope /subscriptions/<SUB_ID>/resourceGroups/my-cpsa-rg
+```
+
+10) Store CI service principal credentials in Key Vault (example)
+
+```bash
+# store appId
+echo "<SP_APPID>" | az keyvault secret set --vault-name <keyVaultName> --name cpsa-sp-appid --value @-
+# store secret
+echo "<SP_PASSWORD>" | az keyvault secret set --vault-name <keyVaultName> --name cpsa-sp-secret --value @-
+# store tenant
+echo "<SP_TENANT>" | az keyvault secret set --vault-name <keyVaultName> --name cpsa-sp-tenant --value @-
+```
+
+11) Retrieve secrets from Key Vault in CI or locally
+
+```bash
+# get secret value (in CI use a secure method to retrieve and set as env vars)
+az keyvault secret show --vault-name <keyVaultName> --name OPENAI-API-KEY --query value -o tsv
+
+# or retrieve SP creds stored earlier
+az keyvault secret show --vault-name <keyVaultName> --name cpsa-sp-appid --query value -o tsv
+az keyvault secret show --vault-name <keyVaultName> --name cpsa-sp-secret --query value -o tsv
+az keyvault secret show --vault-name <keyVaultName> --name cpsa-sp-tenant --query value -o tsv
+```
+
+Notes & troubleshooting
+
+- Role assignments: if you see `InvalidCreateRoleAssignmentRequest` during a single deployment, create role assignments after resources are deployed (as shown above).
+- Key Vault permissions: `az keyvault secret set` can fail with `Forbidden` unless your CLI principal has an access policy or RBAC permission to set secrets. Use `az keyvault set-policy` to add `set` permission for your user or set secrets through a service principal with proper permissions.
+- Secret naming: avoid underscores in secret names when using CLI; use hyphens (we used `OPENAI-API-KEY`).
+- Audit & rotation: rotate service principal secrets periodically and use Key Vault references in CI.
+
+If you want, I can commit this README update (already saved) and also create a dedicated script (`infra/scripts/deploy.sh`) that wraps these commands and prompts for inputs. Tell me if you want the deploy script created.
 
