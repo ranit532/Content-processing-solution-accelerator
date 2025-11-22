@@ -257,6 +257,10 @@ Once both the backend and frontend are running:
 3. **Check results:**
    - After upload, you should see extraction and mapping results in the UI.
    - You can review, edit, or validate the output as needed.
+   - **Confidence Score & Evaluation:**
+      - The UI displays the confidence score (as a percentage) for each processed document, both in the latest result panel and in the history panel.
+      - The evaluation panel shows the accuracy and rationale for each result, helping you assess extraction quality at a glance.
+      - The history panel lists all processed documents with their confidence and evaluation summary for easy review.
 
 4. **Backend/API logs:**
    - Check the backend terminal for logs and errors.
