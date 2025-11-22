@@ -30,15 +30,18 @@ def process_message(message: dict):
     confidence = 0.95
 
     result = {
+        "id": doc_id,  # Required by Cosmos DB
         "doc_id": doc_id,
         "blob_name": blob_name,
         "extracted": extracted,
         "mapped": mapped_json,
         "confidence": confidence,
-        "validated": False
+        "validated": False,
+        "partitionKey": doc_id  # Add this if your partition key is /partitionKey
     }
 
-    print("Upserting to Cosmos DB:", result)
+    print("[DEBUG] Upserting to Cosmos DB. Document:")
+    print(result)
     upsert_result(result)
     logger.info(f"Finished processing {doc_id} with confidence {confidence}")
     return result
